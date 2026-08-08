@@ -1,0 +1,151 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sys="using:System"
+        xmlns:vm="using:Umvc3MusicTool.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="720"
+        x:Class="Umvc3MusicTool.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="UMVC3 Music Tool"
+        Width="1280" Height="720"
+        MinWidth="1024" MinHeight="600"
+        DragDrop.AllowDrop="True">
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="14" RowSpacing="10">
+
+        <!-- TITLE BAR -->
+        <Grid ColumnDefinitions="Auto,*,Auto">
+            <TextBlock Text="UMVC3 Music Tool" FontSize="18" FontWeight="Bold" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="1" Text="Convert audio to UMVC3 .sngw" VerticalAlignment="Center"
+                       Margin="12,0,0,0" Opacity="0.6"/>
+            <Button Grid.Column="2" Content="BGM index guide..." Click="OnBgmGuideClick"/>
+        </Grid>
+
+        <!-- MAIN CONTENT -->
+        <Grid Grid.Row="1" ColumnDefinitions="2*,3*" ColumnSpacing="14">
+
+            <!-- INPUT -->
+            <GroupBox Header="Input files (drag &amp; drop anywhere)">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+                        <Button Content="Add files..." Click="OnAddFilesClick"/>
+                        <Button Content="Remove selected" Click="OnRemoveSelectedClick"/>
+                        <Button Content="Clear" Command="{Binding ClearFilesCommand}"/>
+                    </StackPanel>
+                    <ListBox ItemsSource="{Binding Files}"
+                             SelectedItem="{Binding SelectedFile}"
+                             BorderThickness="1"
+                             BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:SourceFileItem">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding SizeText}" Margin="8,0,0,0"
+                                               Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </GroupBox>
+
+            <!-- SETTINGS -->
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Spacing="8">
+
+                    <!-- OUTPUT -->
+                    <GroupBox Header="Output">
+                        <StackPanel Spacing="8" Margin="4">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <TextBlock Text="Folder:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Grid.Column="1" Text="{Binding OutputDirectory}"/>
+                                <Button Grid.Column="2" Content="Browse..." Margin="8,0,0,0" Click="OnBrowseOutputClick"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <TextBlock Text="File name:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Grid.Column="1" Text="{Binding OutputName}"/>
+                                <TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="8,0,0,0"
+                                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}">
+                                    <Run Text="→  "/><Run Text="{Binding OutputPreview, Mode=OneWay}"/>
+                                </TextBlock>
+                            </Grid>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- LOOP & ENCODING -->
+                    <GroupBox Header="Looping &amp; encoding">
+                        <StackPanel Spacing="8" Margin="4">
+                            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto">
+                                <CheckBox Content="Loop" IsChecked="{Binding LoopEnabled}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+
+                                <TextBlock Grid.Column="1" Text="Start:" VerticalAlignment="Center" Margin="8,0,4,0"/>
+                                <NumericUpDown Grid.Column="2" Value="{Binding LoopStartSamples, Mode=TwoWay}"
+                                               Minimum="0" Maximum="1000000000" Increment="1" FormatString="0"
+                                               Width="190" IsEnabled="{Binding LoopEnabled}"/>
+
+                                <TextBlock Grid.Column="3" Text="End:" VerticalAlignment="Center" Margin="12,0,4,0"/>
+                                <NumericUpDown Grid.Column="4" Value="{Binding LoopEndSamples, Mode=TwoWay}"
+                                               Minimum="0" Maximum="1000000000" Increment="1" FormatString="0"
+                                               Width="190" IsEnabled="{Binding LoopEnabled}"/>
+                            </Grid>
+
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="Loop whole song" Command="{Binding SetWholeSongLoopCommand}"/>
+                                <TextBlock Text="Loop points are in samples at the source file's sample rate."
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                            </StackPanel>
+
+                            <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+                                <TextBlock Text="Quality:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <Slider Grid.Column="1" Minimum="0" Maximum="10" TickFrequency="1" Value="{Binding Quality}"
+                                        VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="{Binding Quality, StringFormat='{}{0:0}'}" VerticalAlignment="Center" Margin="8,0,16,0"/>
+                                <TextBlock Grid.Column="3" Text="Ver:" VerticalAlignment="Center" Margin="8,0,4,0"/>
+                                <TextBox Grid.Column="4" Text="{Binding Ver}" Width="70"/>
+                            </Grid>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- ADVANCED -->
+                    <GroupBox Header="Advanced">
+                        <StackPanel Spacing="8" Margin="4">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <TextBlock Text="ffmpeg path:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Grid.Column="1" Text="{Binding FfmpegPath}"/>
+                                <Button Grid.Column="2" Content="Apply" Margin="8,0,0,0"
+                                        Command="{Binding ApplyFfmpegPathCommand}"/>
+                            </Grid>
+                            <TextBlock Text="{Binding FfmpegStatus}" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- CONVERT -->
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Button Content="Convert" Command="{Binding ConvertCommand}" MinWidth="120" HorizontalAlignment="Left"/>
+                        <ProgressBar Grid.Column="1" Minimum="0" Maximum="100" Value="{Binding Progress}"
+                                     Margin="16,0,16,0" VerticalAlignment="Center" Height="14"/>
+                        <TextBlock Grid.Column="2" Text="{Binding Progress, StringFormat='{}{0:0}%'}" VerticalAlignment="Center" MinWidth="44"/>
+                    </Grid>
+
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- LOG -->
+        <GroupBox Grid.Row="2" Header="Log" Height="150">
+            <ListBox ItemsSource="{Binding LogLines}" BorderThickness="0">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="sys:String">
+                        <TextBlock Text="{Binding}" TextWrapping="Wrap" FontFamily="Consolas, Courier New, monospace"/>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </GroupBox>
+
+    </Grid>
+</Window>

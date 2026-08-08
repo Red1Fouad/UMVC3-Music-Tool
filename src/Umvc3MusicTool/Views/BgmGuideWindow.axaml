@@ -1,0 +1,36 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="620" d:DesignHeight="680"
+        x:Class="Umvc3MusicTool.Views.BgmGuideWindow"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="BGM Filename Index Guide"
+        Width="620" Height="680"
+        MinWidth="480" MinHeight="500">
+
+    <Grid RowDefinitions="Auto,*" Margin="12" RowSpacing="8">
+
+        <TextBlock Text="BGM files are named bgm_cr_###.sngw (character themes), bgm_gm_###.sngw (game modes) and bgm_st_###.sngw (stages)."
+                   TextWrapping="Wrap"/>
+
+        <TabControl Grid.Row="1">
+            <TabItem Header="Character Themes (bgm_cr_)">
+                <ScrollViewer>
+                    <TextBlock x:Name="CrText" FontFamily="Consolas, Courier New, monospace" Margin="8"/>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="Game Modes (bgm_gm_)">
+                <ScrollViewer>
+                    <TextBlock x:Name="GmText" FontFamily="Consolas, Courier New, monospace" Margin="8"/>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="Stages (bgm_st_)">
+                <ScrollViewer>
+                    <TextBlock x:Name="StText" FontFamily="Consolas, Courier New, monospace" Margin="8"/>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+
+    </Grid>
+</Window>

@@ -1,0 +1,14 @@
+# Build output
+src/Umvc3MusicTool/bin/
+src/Umvc3MusicTool/obj/
+src/Umvc3MusicTool/publish/
+
+# Visual Studio / Rider
+.vs/
+.vscode/
+*.user
+*.suo
+
+# OS junk
+Thumbs.db
+.DS_Store
