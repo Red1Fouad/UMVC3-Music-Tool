@@ -19,6 +19,7 @@ if ($LASTEXITCODE -ne 0) {
 
 $Exe = Join-Path $Out "Umvc3MusicTool.exe"
 $Ffmpeg = Join-Path $Out "tools\ffmpeg.exe"
+$Oggenc = Join-Path $Out "tools\oggenc2.exe"
 
 if (-not (Test-Path -LiteralPath $Exe)) {
     throw "Expected exe not found: $Exe"
@@ -26,8 +27,12 @@ if (-not (Test-Path -LiteralPath $Exe)) {
 if (-not (Test-Path -LiteralPath $Ffmpeg)) {
     throw "Expected tools\ffmpeg.exe not found: $Ffmpeg"
 }
+if (-not (Test-Path -LiteralPath $Oggenc)) {
+    throw "Expected tools\oggenc2.exe not found: $Oggenc"
+}
 
 Write-Host ""
 Write-Host "Done."
-Write-Host "  Exe:    $Exe"
-Write-Host "  ffmpeg: $Ffmpeg"
+Write-Host "  Exe:     $Exe"
+Write-Host "  ffmpeg:  $Ffmpeg"
+Write-Host "  oggenc2: $Oggenc"

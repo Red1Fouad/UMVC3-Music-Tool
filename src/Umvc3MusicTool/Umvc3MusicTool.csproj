@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <None Include="..\..\tools\ffmpeg.exe" Link="tools\ffmpeg.exe" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Include="..\..\tools\oggenc2.exe" Link="tools\oggenc2.exe" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
   </ItemGroup>
 
   <ItemGroup>

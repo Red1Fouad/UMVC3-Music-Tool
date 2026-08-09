@@ -30,14 +30,17 @@ public enum SngwOutputLayout
 public sealed class SngwConverter
 {
     private readonly string _ffmpeg;
+    private readonly string _oggenc;
     private readonly bool _useSoxr;
     private static readonly Regex TimeRegex = new(@"time=(\d+):(\d+):(\d+(?:\.\d+)?)", RegexOptions.Compiled);
     private static readonly Regex DurationRegex = new(@"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)", RegexOptions.Compiled);
     private static readonly Regex StreamRegex = new(@"Audio:\s*\w+[^,]*, (\d+) Hz, ([^,]+)", RegexOptions.Compiled);
+    private static readonly Regex OggencPctRegex = new(@"\[ *(\d+)[.,]\d+%", RegexOptions.Compiled);
 
-    public SngwConverter(string ffmpegPath, bool useSoxr)
+    public SngwConverter(string ffmpegPath, string oggencPath, bool useSoxr)
     {
         _ffmpeg = ffmpegPath;
+        _oggenc = oggencPath;
         _useSoxr = useSoxr;
     }
 
@@ -120,7 +123,9 @@ public sealed class SngwConverter
 
         var outDir = Path.GetDirectoryName(outputSngwPath)
             ?? throw new ArgumentException("Output path has no directory.");
-        var oggPath = Path.Combine(outDir, Path.GetFileNameWithoutExtension(outputSngwPath) + ".ogg.tmp");
+        var baseTmp = Path.Combine(outDir, Path.GetFileNameWithoutExtension(outputSngwPath));
+        var wavPath = baseTmp + ".wav.tmp";
+        var oggPath = baseTmp + ".ogg.tmp";
 
         Directory.CreateDirectory(outDir);
 
@@ -131,80 +136,171 @@ public sealed class SngwConverter
         var filter = layout switch
         {
             SngwOutputLayout.DynamicMain =>
-                $"{gain}{resample},aformat=channel_layouts=stereo,pan=5.1|FL=0.631*FL|FC=0.631*FR|BR=1.585*FL|LFE=1.585*FR,alimiter=limit=1",
+                $"{gain}{resample},aformat=channel_layouts=stereo,pan=mono|c0=0.5*FL+0.5*FR,pan=5.1|FL=0.631*c0|FC=0.631*c0|BR=1.585*c0|LFE=1.585*c0,alimiter=limit=1",
             SngwOutputLayout.DynamicB =>
-                $"{gain}{resample},aformat=channel_layouts=stereo,volume=0.631",
+                $"{gain}{resample},aformat=channel_layouts=stereo,pan=mono|c0=0.5*FL+0.5*FR,pan=stereo|FL=c0|FR=c0,volume=0.631",
             _ =>
                 $"{gain}{resample},aformat=channel_layouts=stereo,pan=5.1|FL=FL|FC=FR",
         };
 
-        var psi = new ProcessStartInfo
+        // Pass 1: ffmpeg applies the filter chain and writes 48 kHz PCM (WAV).
+        var ffmpegPsi = new ProcessStartInfo
         {
             FileName = _ffmpeg,
-            RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true,
         };
-        psi.ArgumentList.Add("-y");
-        psi.ArgumentList.Add("-nostdin");
-        psi.ArgumentList.Add("-hide_banner");
-        psi.ArgumentList.Add("-i");
-        psi.ArgumentList.Add(inputPath);
-        psi.ArgumentList.Add("-map_metadata");
-        psi.ArgumentList.Add("-1");
-        psi.ArgumentList.Add("-vn");
-        psi.ArgumentList.Add("-af");
-        psi.ArgumentList.Add(filter);
-        psi.ArgumentList.Add("-c:a");
-        psi.ArgumentList.Add("libvorbis");
-        psi.ArgumentList.Add("-q:a");
-        psi.ArgumentList.Add(options.Quality.ToString(CultureInfo.InvariantCulture));
-        psi.ArgumentList.Add("-metadata");
-        psi.ArgumentList.Add($"Ver={options.Ver}");
-        psi.ArgumentList.Add("-metadata");
-        psi.ArgumentList.Add($"LoopStart={options.LoopStartSamples}");
-        psi.ArgumentList.Add("-metadata");
-        psi.ArgumentList.Add($"LoopEnd={options.LoopEndSamples}");
-        psi.ArgumentList.Add("-f");
-        psi.ArgumentList.Add("ogg");
-        psi.ArgumentList.Add(oggPath);
+        ffmpegPsi.ArgumentList.Add("-y");
+        ffmpegPsi.ArgumentList.Add("-nostdin");
+        ffmpegPsi.ArgumentList.Add("-hide_banner");
+        ffmpegPsi.ArgumentList.Add("-i");
+        ffmpegPsi.ArgumentList.Add(inputPath);
+        ffmpegPsi.ArgumentList.Add("-map_metadata");
+        ffmpegPsi.ArgumentList.Add("-1");
+        ffmpegPsi.ArgumentList.Add("-vn");
+        ffmpegPsi.ArgumentList.Add("-af");
+        ffmpegPsi.ArgumentList.Add(filter);
+        ffmpegPsi.ArgumentList.Add("-c:a");
+        ffmpegPsi.ArgumentList.Add("pcm_s24le");
+        ffmpegPsi.ArgumentList.Add("-f");
+        ffmpegPsi.ArgumentList.Add("wav");
+        ffmpegPsi.ArgumentList.Add(wavPath);
 
-        using var proc = Process.Start(psi)
-            ?? throw new InvalidOperationException("Failed to start ffmpeg.");
-
-        var stderrTail = new StringBuilder();
-        proc.ErrorDataReceived += (_, e) =>
+        try
         {
-            if (string.IsNullOrEmpty(e.Data))
-                return;
-
-            lock (stderrTail)
+            await RunAsync(ffmpegPsi, ct, line =>
             {
-                stderrTail.AppendLine(e.Data);
-                if (stderrTail.Length > 8000)
-                    stderrTail.Remove(0, stderrTail.Length - 6000);
-            }
+                var m = TimeRegex.Match(line);
+                if (!m.Success || info.DurationSeconds <= 0)
+                    return;
 
-            var m = TimeRegex.Match(e.Data);
-            if (m.Success)
-            {
                 var h = double.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
                 var min = double.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture);
                 var s = double.Parse(m.Groups[3].Value, CultureInfo.InvariantCulture);
                 var elapsed = h * 3600 + min * 60 + s;
-                if (info.DurationSeconds > 0)
+                var pct = (int)Math.Clamp(elapsed / info.DurationSeconds * 10, 0, 9);
+                progress?.Report($"Encoding... {pct}%");
+            }).ConfigureAwait(false);
+
+            // Pass 2: oggenc2 encodes to Vorbis with channel coupling disabled so that all
+            // 6 channels stay in a single full-range submap (libvorbis's 5.1 template would
+            // otherwise route channel 5 to a bass-only LFE submap).
+            var oggencPsi = new ProcessStartInfo
+            {
+                FileName = _oggenc,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+
+            var bitrate = layout switch
+            {
+                SngwOutputLayout.DynamicB => "160k",
+                _ => null,
+            };
+            if (bitrate is null)
+            {
+                oggencPsi.ArgumentList.Add("-q");
+                oggencPsi.ArgumentList.Add(options.Quality.ToString(CultureInfo.InvariantCulture));
+            }
+            else
+            {
+                oggencPsi.ArgumentList.Add("-b");
+                oggencPsi.ArgumentList.Add(bitrate.TrimEnd('k', 'K'));
+            }
+            oggencPsi.ArgumentList.Add("--advanced-encode-option");
+            oggencPsi.ArgumentList.Add("disable_coupling=Y");
+            oggencPsi.ArgumentList.Add("-c");
+            oggencPsi.ArgumentList.Add($"Ver={options.Ver}");
+            oggencPsi.ArgumentList.Add("-c");
+            oggencPsi.ArgumentList.Add($"LoopStart={options.LoopStartSamples}");
+            oggencPsi.ArgumentList.Add("-c");
+            oggencPsi.ArgumentList.Add($"LoopEnd={options.LoopEndSamples}");
+            oggencPsi.ArgumentList.Add("-o");
+            oggencPsi.ArgumentList.Add(oggPath);
+            oggencPsi.ArgumentList.Add(wavPath);
+
+            await RunAsync(oggencPsi, ct, line =>
+            {
+                var m = OggencPctRegex.Match(line);
+                if (!m.Success)
+                    return;
+
+                if (int.TryParse(m.Groups[1].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var whole))
                 {
-                    var pct = (int)Math.Clamp(elapsed / info.DurationSeconds * 100, 0, 99);
+                    var pct = (int)Math.Clamp(10 + whole * 89 / 100, 10, 99);
                     progress?.Report($"Encoding... {pct}%");
                 }
-            }
-        };
+            }).ConfigureAwait(false);
+        }
+        finally
+        {
+            try { File.Delete(wavPath); } catch { }
+        }
 
-        proc.BeginErrorReadLine();
+        progress?.Report("Writing .sngw...");
+        StripEncoderComment(oggPath);
+        var finalPath = Path.Combine(outDir, Path.GetFileNameWithoutExtension(outputSngwPath) + ".sngw");
+        File.Move(oggPath, finalPath, overwrite: true);
+        return finalPath;
+    }
+
+    private static async Task RunAsync(
+        ProcessStartInfo psi,
+        CancellationToken ct,
+        Action<string> onLine)
+    {
+        using var proc = Process.Start(psi)
+            ?? throw new InvalidOperationException($"Failed to start {Path.GetFileName(psi.FileName)}.");
+
+        var tail = new StringBuilder();
+        var pending = new StringBuilder();
+
+        void HandleLine(string line)
+        {
+            lock (tail)
+            {
+                tail.AppendLine(line);
+                if (tail.Length > 8000)
+                    tail.Remove(0, tail.Length - 6000);
+            }
+            onLine(line);
+        }
 
         try
         {
+            // Some encoders (oggenc2) update progress with bare '\r', so split on both.
+            using var reader = new StreamReader(proc.StandardError.BaseStream);
+            var buf = new char[4096];
+            while (true)
+            {
+                var n = await reader.ReadAsync(buf.AsMemory(), ct).ConfigureAwait(false);
+                if (n == 0)
+                    break;
+
+                for (var i = 0; i < n; i++)
+                {
+                    var c = buf[i];
+                    if (c == '\r' || c == '\n')
+                    {
+                        if (pending.Length > 0)
+                        {
+                            var line = pending.ToString();
+                            pending.Clear();
+                            HandleLine(line);
+                        }
+                    }
+                    else
+                    {
+                        pending.Append(c);
+                    }
+                }
+            }
+
+            if (pending.Length > 0)
+                HandleLine(pending.ToString());
+
             await proc.WaitForExitAsync(ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
@@ -215,19 +311,13 @@ public sealed class SngwConverter
 
         if (proc.ExitCode != 0)
         {
-            string tail;
-            lock (stderrTail)
-                tail = stderrTail.ToString();
+            string t;
+            lock (tail)
+                t = tail.ToString();
 
             throw new InvalidOperationException(
-                $"ffmpeg failed (exit code {proc.ExitCode}).\n{tail.Trim()}");
+                $"{Path.GetFileName(psi.FileName)} failed (exit code {proc.ExitCode}).\n{t.Trim()}");
         }
-
-        progress?.Report("Writing .sngw...");
-        StripEncoderComment(oggPath);
-        var finalPath = Path.Combine(outDir, Path.GetFileNameWithoutExtension(outputSngwPath) + ".sngw");
-        File.Move(oggPath, finalPath, overwrite: true);
-        return finalPath;
     }
 
     private static void ResolveLoopPoints(ConversionOptions options, AudioInfo info)

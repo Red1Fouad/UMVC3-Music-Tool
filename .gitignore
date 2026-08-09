@@ -10,6 +10,9 @@ tools/
 # Generated .sngw output files
 *.sngw
 
+# Test audio asset (not part of the repo)
+test.mp3
+
 # Visual Studio / Rider
 .vs/
 .vscode/

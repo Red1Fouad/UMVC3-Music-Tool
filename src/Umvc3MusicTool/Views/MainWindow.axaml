@@ -228,6 +228,13 @@
                                                        Width="170" IsEnabled="{Binding Dynamic2LoopEnabled}"/>
                                     </Grid>
 
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button Content="Loop file 1 whole song" Command="{Binding SetDynamic1WholeSongLoopCommand}"
+                                                IsEnabled="{Binding Dynamic1LoopEnabled}"/>
+                                        <Button Content="Loop file 2 whole song" Command="{Binding SetDynamic2WholeSongLoopCommand}"
+                                                IsEnabled="{Binding Dynamic2LoopEnabled}"/>
+                                    </StackPanel>
+
                                     <TextBlock Text="Loop points are in samples at each source file's sample rate."
                                                TextWrapping="Wrap" Opacity="0.7"/>
 

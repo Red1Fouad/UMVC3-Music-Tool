@@ -17,19 +17,22 @@ internal static class Cli
         {
             var ffmpeg = FfmpegLocator.FindFfmpeg(null)
                 ?? throw new InvalidOperationException("ffmpeg not found (PATH or tools folder).");
+            var oggenc = OggencLocator.FindOggenc()
+                ?? throw new InvalidOperationException("oggenc2 not found (tools folder or PATH); required for correct 6-channel output.");
 
             var useSoxr = FfmpegCapabilities.HasSoxr(ffmpeg);
-            var converter = new SngwConverter(ffmpeg, useSoxr);
+            var converter = new SngwConverter(ffmpeg, oggenc, useSoxr);
 
             var input = string.Empty;
             var output = string.Empty;
             var name = string.Empty;
-            var quality = 10;
+            var quality = 7;
             var ver = "0002";
             var loop = true;
             double? loopStart = null;
             double? loopEnd = null;
             var samples = false;
+            var dynamic = false;
 
             for (var i = 1; i < args.Length; i++)
             {
@@ -42,6 +45,7 @@ internal static class Cli
                     case "--loop-start": loopStart = double.Parse(args[++i]); break;
                     case "--loop-end": loopEnd = double.Parse(args[++i]); break;
                     case "--samples": samples = true; break;
+                    case "--dynamic": dynamic = true; break;
                     case "--no-loop": loop = false; break;
                     default:
                         if (input.Length == 0)
@@ -87,7 +91,8 @@ internal static class Cli
             var target = Path.Combine(outDir, baseName + ".sngw");
             var progress = new Progress<string>(msg => Console.WriteLine(msg));
 
-            var final = converter.ConvertAsync(input, target, options, info, progress, SngwOutputLayout.Standard)
+            var layout = dynamic ? SngwOutputLayout.DynamicMain : SngwOutputLayout.Standard;
+            var final = converter.ConvertAsync(input, target, options, info, progress, layout)
                 .GetAwaiter().GetResult();
 
             Console.WriteLine($"OK -> {final}");

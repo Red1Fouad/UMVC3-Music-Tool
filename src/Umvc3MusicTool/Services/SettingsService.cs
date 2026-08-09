@@ -9,7 +9,7 @@ public sealed class AppSettings
     public string? FfmpegPath { get; set; }
     public string? OutputDirectory { get; set; }
     public string? OutputName { get; set; }
-    public int Quality { get; set; } = 10;
+    public int Quality { get; set; } = 7;
     public string Ver { get; set; } = "0002";
     public bool LoopEnabled { get; set; } = true;
     public long LoopStartSamples { get; set; }

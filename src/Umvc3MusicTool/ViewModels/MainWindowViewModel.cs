@@ -17,24 +17,31 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly AppSettings _settings;
     private SngwConverter? _converter;
     private string? _ffmpegPath;
+    private string? _oggencPath;
 
     public MainWindowViewModel()
     {
         _settings = SettingsService.Load();
 
         _ffmpegPath = FfmpegLocator.FindFfmpeg(_settings.FfmpegPath);
+        _oggencPath = OggencLocator.FindOggenc();
 
-        if (_ffmpegPath is not null)
+        if (_ffmpegPath is not null && _oggencPath is not null)
         {
             var soxr = FfmpegCapabilities.HasSoxr(_ffmpegPath);
-            _converter = new SngwConverter(_ffmpegPath, soxr);
+            _converter = new SngwConverter(_ffmpegPath, _oggencPath, soxr);
             UseSoxr = soxr;
             FfmpegPath = _ffmpegPath;
-            FfmpegStatus = $"ffmpeg found: {_ffmpegPath}" + (soxr ? " (soxr resampler available)" : " (using built-in swr resampler)");
+            FfmpegStatus = $"ffmpeg found: {_ffmpegPath}" + (soxr ? " (soxr resampler available)" : " (using built-in swr resampler)")
+                + $"\noggenc2 found: {_oggencPath}";
+        }
+        else if (_ffmpegPath is null)
+        {
+            FfmpegStatus = "ffmpeg not found. Set the path in Advanced, or place ffmpeg.exe in the tools folder.";
         }
         else
         {
-            FfmpegStatus = "ffmpeg not found. Set the path in Advanced, or place ffmpeg.exe in the tools folder.";
+            FfmpegStatus = "oggenc2 not found. Place oggenc2.exe in the tools folder.";
         }
 
         OutputDirectory = _settings.OutputDirectory ?? string.Empty;
@@ -77,7 +84,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool loopEnabled;
 
     [ObservableProperty]
-    private int quality = 10;
+    private int quality = 7;
 
     [ObservableProperty]
     private string ver = "0002";
@@ -137,13 +144,21 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         _ffmpegPath = ffmpeg;
+        _oggencPath ??= OggencLocator.FindOggenc();
+        if (_oggencPath is null)
+        {
+            FfmpegStatus = "oggenc2 not found. Place oggenc2.exe in the tools folder.";
+            return;
+        }
+
         var soxr = FfmpegCapabilities.HasSoxr(ffmpeg);
-        _converter = new SngwConverter(ffmpeg, soxr);
+        _converter = new SngwConverter(ffmpeg, _oggencPath, soxr);
         UseSoxr = soxr;
         _settings.FfmpegPath = ffmpeg;
         SettingsService.Save(_settings);
         FfmpegStatus = $"ffmpeg found: {ffmpeg}"
-            + (soxr ? " (soxr resampler available)" : " (using built-in swr resampler)");
+            + (soxr ? " (soxr resampler available)" : " (using built-in swr resampler)")
+            + $"\noggenc2 found: {_oggencPath}";
         ConvertCommand.NotifyCanExecuteChanged();
     }
 
@@ -273,18 +288,37 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void SetWholeSongLoop()
+    private void SetWholeSongLoop() =>
+        SetWholeSongLoopFor(
+            Files.FirstOrDefault()?.Path,
+            (start, end) => { LoopStartSamples = start; LoopEndSamples = end; },
+            "an input file");
+
+    [RelayCommand]
+    private void SetDynamic1WholeSongLoop() =>
+        SetWholeSongLoopFor(
+            DynamicFile1,
+            (start, end) => { Dynamic1LoopStartSamples = start; Dynamic1LoopEndSamples = end; },
+            "File 1");
+
+    [RelayCommand]
+    private void SetDynamic2WholeSongLoop() =>
+        SetWholeSongLoopFor(
+            DynamicFile2,
+            (start, end) => { Dynamic2LoopStartSamples = start; Dynamic2LoopEndSamples = end; },
+            "File 2");
+
+    private void SetWholeSongLoopFor(string? path, Action<long, long> apply, string label)
     {
-        var first = Files.FirstOrDefault();
-        if (first is null)
+        if (string.IsNullOrWhiteSpace(path))
         {
-            Log("Select or add an input file first to set a whole-song loop.");
+            Log($"Select or add {label} first to set a whole-song loop.");
             return;
         }
 
         try
         {
-            var info = _converter?.Probe(first.Path);
+            var info = _converter?.Probe(path);
             if (info is null)
             {
                 Log("ffmpeg is not available.");
@@ -295,9 +329,8 @@ public partial class MainWindowViewModel : ViewModelBase
                 ? (long)Math.Round(info.DurationSeconds * info.SampleRate)
                 : info.SampleCountAt48k;
 
-            LoopStartSamples = 0;
-            LoopEndSamples = endSamples;
-            Log($"Loop set to whole song (0 → {LoopEndSamples} samples @ {info.SampleRate} Hz).");
+            apply(0, endSamples);
+            Log($"Loop set to whole song (0 → {endSamples} samples @ {info.SampleRate} Hz).");
         }
         catch (Exception ex)
         {

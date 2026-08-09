@@ -7,7 +7,7 @@ public sealed class ConversionOptions
     public bool LoopEnabled { get; set; } = true;
     public long LoopStartSamples { get; set; }
     public long LoopEndSamples { get; set; }
-    public int Quality { get; set; } = 10;
+    public int Quality { get; set; } = 7;
     public string Ver { get; set; } = "0002";
     public double GainDb { get; set; }
 }
