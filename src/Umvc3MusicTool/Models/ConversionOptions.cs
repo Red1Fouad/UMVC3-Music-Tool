@@ -9,4 +9,5 @@ public sealed class ConversionOptions
     public long LoopEndSamples { get; set; }
     public int Quality { get; set; } = 10;
     public string Ver { get; set; } = "0002";
+    public double GainDb { get; set; }
 }

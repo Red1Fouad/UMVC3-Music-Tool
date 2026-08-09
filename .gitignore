@@ -4,6 +4,12 @@ src/Umvc3MusicTool/obj/
 src/Umvc3MusicTool/publish/
 publish/
 
+# Bundled ffmpeg binary (fetched/downloaded locally, not tracked)
+tools/
+
+# Generated .sngw output files
+*.sngw
+
 # Visual Studio / Rider
 .vs/
 .vscode/

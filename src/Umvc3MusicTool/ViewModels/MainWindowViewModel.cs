@@ -44,6 +44,16 @@ public partial class MainWindowViewModel : ViewModelBase
         Ver = _settings.Ver;
         _loopStartSamples = Math.Max(0, _settings.LoopStartSamples);
         _loopEndSamples = Math.Max(0, _settings.LoopEndSamples);
+
+        DynamicFile1 = _settings.DynamicFile1 ?? string.Empty;
+        DynamicFile2 = _settings.DynamicFile2 ?? string.Empty;
+        VolumeDb = _settings.VolumeDb;
+        Dynamic1LoopEnabled = _settings.Dynamic1LoopEnabled;
+        Dynamic2LoopEnabled = _settings.Dynamic2LoopEnabled;
+        _dynamic1LoopStartSamples = Math.Max(0, _settings.Dynamic1LoopStartSamples);
+        _dynamic1LoopEndSamples = Math.Max(0, _settings.Dynamic1LoopEndSamples);
+        _dynamic2LoopStartSamples = Math.Max(0, _settings.Dynamic2LoopStartSamples);
+        _dynamic2LoopEndSamples = Math.Max(0, _settings.Dynamic2LoopEndSamples);
     }
 
     public ObservableCollection<SourceFileItem> Files { get; } = [];
@@ -51,6 +61,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ConvertCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DynamicConvertCommand))]
     private bool isBusy;
 
     [ObservableProperty]
@@ -83,8 +94,30 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private SourceFileItem? selectedFile;
 
+    [ObservableProperty]
+    private string dynamicFile1 = string.Empty;
+
+    [ObservableProperty]
+    private string dynamicFile2 = string.Empty;
+
+    [ObservableProperty]
+    private double volumeDb;
+
+    [ObservableProperty]
+    private bool dynamic1LoopEnabled = true;
+
+    [ObservableProperty]
+    private bool dynamic2LoopEnabled = true;
+
     private long _loopStartSamples;
     private long _loopEndSamples;
+    private long _dynamic1LoopStartSamples;
+    private long _dynamic1LoopEndSamples;
+    private long _dynamic2LoopStartSamples;
+    private long _dynamic2LoopEndSamples;
+
+    [RelayCommand]
+    private void ResetVolume() => VolumeDb = 0;
 
     [RelayCommand]
     private void ApplyFfmpegPath()
@@ -126,6 +159,30 @@ public partial class MainWindowViewModel : ViewModelBase
         set => SetProperty(ref _loopEndSamples, Math.Max(0, value));
     }
 
+    public long Dynamic1LoopStartSamples
+    {
+        get => _dynamic1LoopStartSamples;
+        set => SetProperty(ref _dynamic1LoopStartSamples, Math.Max(0, value));
+    }
+
+    public long Dynamic1LoopEndSamples
+    {
+        get => _dynamic1LoopEndSamples;
+        set => SetProperty(ref _dynamic1LoopEndSamples, Math.Max(0, value));
+    }
+
+    public long Dynamic2LoopStartSamples
+    {
+        get => _dynamic2LoopStartSamples;
+        set => SetProperty(ref _dynamic2LoopStartSamples, Math.Max(0, value));
+    }
+
+    public long Dynamic2LoopEndSamples
+    {
+        get => _dynamic2LoopEndSamples;
+        set => SetProperty(ref _dynamic2LoopEndSamples, Math.Max(0, value));
+    }
+
     public string OutputPreview
     {
         get
@@ -135,9 +192,38 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
+    public string DynamicOutputPreview
+    {
+        get
+        {
+            var name = string.IsNullOrWhiteSpace(OutputName) ? "<input name>" : OutputName;
+            return $"{name}.sngw  ·  {name}_b.sngw";
+        }
+    }
+
     partial void OnOutputNameChanged(string value)
     {
         OnPropertyChanged(nameof(OutputPreview));
+        OnPropertyChanged(nameof(DynamicOutputPreview));
+    }
+
+    partial void OnDynamicFile1Changed(string value)
+    {
+        DynamicConvertCommand.NotifyCanExecuteChanged();
+
+        if (!string.IsNullOrWhiteSpace(value) && File.Exists(value))
+        {
+            if (string.IsNullOrWhiteSpace(OutputDirectory))
+                OutputDirectory = Path.GetDirectoryName(value) ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(OutputName))
+                OutputName = Path.GetFileNameWithoutExtension(value);
+        }
+    }
+
+    partial void OnDynamicFile2Changed(string value)
+    {
+        DynamicConvertCommand.NotifyCanExecuteChanged();
     }
 
     public void AddFiles(IEnumerable<string> paths)
@@ -272,6 +358,7 @@ public partial class MainWindowViewModel : ViewModelBase
                     LoopEnabled = LoopEnabled,
                     Quality = Quality,
                     Ver = string.IsNullOrWhiteSpace(Ver) ? "0002" : Ver.Trim(),
+                    GainDb = VolumeDb,
                 };
 
                 if (LoopEnabled)
@@ -301,7 +388,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 try
                 {
                     var final = await converter.ConvertAsync(
-                        file.Path, outputPath, options, info, localProgress, ct);
+                        file.Path, outputPath, options, info, localProgress, SngwOutputLayout.Standard, ct);
 
                     Log($"  OK → {Path.GetFileName(final)}" +
                         $" (LoopStart={options.LoopStartSamples}, LoopEnd={options.LoopEndSamples})");
@@ -329,6 +416,125 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
+    private bool CanDynamicConvert() =>
+        !IsBusy && _converter is not null &&
+        !string.IsNullOrWhiteSpace(DynamicFile1) && File.Exists(DynamicFile1) &&
+        !string.IsNullOrWhiteSpace(DynamicFile2) && File.Exists(DynamicFile2);
+
+    [RelayCommand(CanExecute = nameof(CanDynamicConvert))]
+    private async Task DynamicConvertAsync(CancellationToken ct)
+    {
+        IsBusy = true;
+        Progress = 0;
+        try
+        {
+            var converter = _converter ?? throw new InvalidOperationException("ffmpeg is not available.");
+
+            if (string.IsNullOrWhiteSpace(OutputDirectory))
+            {
+                Log("Output directory is empty.");
+                return;
+            }
+
+            Directory.CreateDirectory(OutputDirectory);
+
+            var baseName = string.IsNullOrWhiteSpace(OutputName)
+                ? Path.GetFileNameWithoutExtension(DynamicFile1)
+                : OutputName.Trim();
+
+            var jobs = new (string Input, string OutputBase, SngwOutputLayout Layout, bool LoopEnabled, long LoopStart, long LoopEnd)[]
+            {
+                (DynamicFile1, baseName, SngwOutputLayout.DynamicMain, Dynamic1LoopEnabled, Dynamic1LoopStartSamples, Dynamic1LoopEndSamples),
+                (DynamicFile2, baseName + "_b", SngwOutputLayout.DynamicB, Dynamic2LoopEnabled, Dynamic2LoopStartSamples, Dynamic2LoopEndSamples),
+            };
+
+            var done = 0;
+
+            foreach (var (input, outputBase, layout, loopEnabled, loopStart, loopEnd) in jobs)
+            {
+                if (ct.IsCancellationRequested)
+                {
+                    Log("Conversion cancelled.");
+                    return;
+                }
+
+                Log($"--- {Path.GetFileName(input)} ---");
+                AudioInfo info;
+                try
+                {
+                    info = converter.Probe(input);
+                }
+                catch (Exception ex)
+                {
+                    Log($"  ERROR: {ex.Message}");
+                    continue;
+                }
+
+                Log($"  Source: {info.SampleRate} Hz, {info.Channels} ch, {info.DurationSeconds:F2}s");
+
+                var options = new ConversionOptions
+                {
+                    LoopEnabled = loopEnabled,
+                    Quality = Quality,
+                    Ver = string.IsNullOrWhiteSpace(Ver) ? "0002" : Ver.Trim(),
+                    GainDb = VolumeDb,
+                };
+
+                if (loopEnabled)
+                {
+                    options.LoopStartSamples = loopStart;
+                    options.LoopEndSamples = loopEnd;
+                }
+                else
+                {
+                    options.LoopStartSamples = -1;
+                    options.LoopEndSamples = -1;
+                }
+
+                var outputPath = Path.Combine(OutputDirectory, outputBase + ".sngw");
+
+                var localProgress = new Progress<string>(msg =>
+                {
+                    Log(msg);
+                    if (msg.StartsWith("Encoding...", StringComparison.Ordinal))
+                    {
+                        var pctStr = msg.Split(' ')[1].TrimEnd('%');
+                        if (int.TryParse(pctStr, out var pct))
+                            Progress = (pct + done * 100) / 2.0;
+                    }
+                });
+
+                try
+                {
+                    var final = await converter.ConvertAsync(
+                        input, outputPath, options, info, localProgress, layout, ct);
+
+                    Log($"  OK → {Path.GetFileName(final)}" +
+                        $" (LoopStart={options.LoopStartSamples}, LoopEnd={options.LoopEndSamples})");
+                }
+                catch (OperationCanceledException)
+                {
+                    Log("  Cancelled.");
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    Log($"  ERROR: {ex.Message}");
+                }
+
+                done++;
+                Progress = done * 100.0 / jobs.Length;
+            }
+
+            Log("Done.");
+            SaveSettings();
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
     private void Log(string message)
     {
         LogLines.Add($"[{DateTime.Now:HH:mm:ss}] {message}");
@@ -344,6 +550,15 @@ public partial class MainWindowViewModel : ViewModelBase
         _settings.LoopEnabled = LoopEnabled;
         _settings.LoopStartSamples = LoopStartSamples;
         _settings.LoopEndSamples = LoopEndSamples;
+        _settings.DynamicFile1 = string.IsNullOrWhiteSpace(DynamicFile1) ? null : DynamicFile1;
+        _settings.DynamicFile2 = string.IsNullOrWhiteSpace(DynamicFile2) ? null : DynamicFile2;
+        _settings.VolumeDb = VolumeDb;
+        _settings.Dynamic1LoopEnabled = Dynamic1LoopEnabled;
+        _settings.Dynamic1LoopStartSamples = Dynamic1LoopStartSamples;
+        _settings.Dynamic1LoopEndSamples = Dynamic1LoopEndSamples;
+        _settings.Dynamic2LoopEnabled = Dynamic2LoopEnabled;
+        _settings.Dynamic2LoopStartSamples = Dynamic2LoopStartSamples;
+        _settings.Dynamic2LoopEndSamples = Dynamic2LoopEndSamples;
         SettingsService.Save(_settings);
     }
 }

@@ -14,6 +14,15 @@ public sealed class AppSettings
     public bool LoopEnabled { get; set; } = true;
     public long LoopStartSamples { get; set; }
     public long LoopEndSamples { get; set; }
+    public double VolumeDb { get; set; }
+    public string? DynamicFile1 { get; set; }
+    public string? DynamicFile2 { get; set; }
+    public bool Dynamic1LoopEnabled { get; set; } = true;
+    public long Dynamic1LoopStartSamples { get; set; }
+    public long Dynamic1LoopEndSamples { get; set; }
+    public bool Dynamic2LoopEnabled { get; set; } = true;
+    public long Dynamic2LoopStartSamples { get; set; }
+    public long Dynamic2LoopEndSamples { get; set; }
 }
 
 public sealed class SettingsService

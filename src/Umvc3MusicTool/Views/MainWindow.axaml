@@ -24,7 +24,10 @@
         </Grid>
 
         <!-- MAIN CONTENT -->
-        <Grid Grid.Row="1" ColumnDefinitions="2*,3*" ColumnSpacing="14">
+        <TabControl Grid.Row="1">
+
+            <TabItem Header="Classic/Character Music">
+            <Grid ColumnDefinitions="2*,3*" ColumnSpacing="14">
 
             <!-- INPUT -->
             <GroupBox Header="Input files (drag &amp; drop anywhere)">
@@ -107,6 +110,14 @@
                                 <TextBlock Grid.Column="3" Text="Ver:" VerticalAlignment="Center" Margin="8,0,4,0"/>
                                 <TextBox Grid.Column="4" Text="{Binding Ver}" Width="70"/>
                             </Grid>
+
+                            <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                                <TextBlock Text="Volume:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <Slider Grid.Column="1" Minimum="-20" Maximum="20" TickFrequency="0.5" Value="{Binding VolumeDb}"
+                                        VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="{Binding VolumeDb, StringFormat='{}{0:0.#} dB'}" VerticalAlignment="Center" Margin="8,0,0,0" MinWidth="48"/>
+                                <Button Grid.Column="3" Content="Reset" Command="{Binding ResetVolumeCommand}" Margin="8,0,0,0"/>
+                            </Grid>
                         </StackPanel>
                     </GroupBox>
 
@@ -134,7 +145,125 @@
 
                 </StackPanel>
             </ScrollViewer>
-        </Grid>
+            </Grid>
+            </TabItem>
+
+            <TabItem Header="Dynamic Music">
+                <Grid ColumnDefinitions="2*,3*" ColumnSpacing="14">
+
+                    <!-- INPUT -->
+                    <GroupBox Header="Input files (2 required)">
+                        <StackPanel Spacing="8" Margin="4">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <TextBlock Text="File 1:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Grid.Column="1" Text="{Binding DynamicFile1}"
+                                         PlaceholderText="Main track → 6-track .sngw"/>
+                                <Button Grid.Column="2" Content="Browse..." Margin="8,0,0,0" Click="OnBrowseDynamicFile1Click"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <TextBlock Text="File 2:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Grid.Column="1" Text="{Binding DynamicFile2}"
+                                         PlaceholderText="Secondary track → 2-track .sngw"/>
+                                <Button Grid.Column="2" Content="Browse..." Margin="8,0,0,0" Click="OnBrowseDynamicFile2Click"/>
+                            </Grid>
+                            <TextBlock TextWrapping="Wrap" Opacity="0.7">
+                                <Run Text="File 1 gets the song on tracks 1-2 and 5-6 (tracks 3-4 stay silent). "/>
+                                <Run Text="File 2 becomes the 2-track "/><Run Text="`_b`"/><Run Text=" companion file."/>
+                            </TextBlock>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- SETTINGS -->
+                    <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel Spacing="8">
+
+                            <!-- OUTPUT -->
+                            <GroupBox Header="Output">
+                                <StackPanel Spacing="8" Margin="4">
+                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                        <TextBlock Text="Folder:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBox Grid.Column="1" Text="{Binding OutputDirectory}"/>
+                                        <Button Grid.Column="2" Content="Browse..." Margin="8,0,0,0" Click="OnBrowseOutputClick"/>
+                                    </Grid>
+                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                        <TextBlock Text="File name:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBox Grid.Column="1" Text="{Binding OutputName}"/>
+                                        <TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="8,0,0,0"
+                                                   Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}">
+                                            <Run Text="→  "/><Run Text="{Binding DynamicOutputPreview, Mode=OneWay}"/>
+                                        </TextBlock>
+                                    </Grid>
+                                </StackPanel>
+                            </GroupBox>
+
+                            <!-- LOOP & ENCODING -->
+                            <GroupBox Header="Looping &amp; encoding">
+                                <StackPanel Spacing="8" Margin="4">
+                                    <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto">
+                                        <CheckBox Content="File 1 loop" IsChecked="{Binding Dynamic1LoopEnabled}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+
+                                        <TextBlock Grid.Column="1" Text="Start:" VerticalAlignment="Center" Margin="8,0,4,0"/>
+                                        <NumericUpDown Grid.Column="2" Value="{Binding Dynamic1LoopStartSamples, Mode=TwoWay}"
+                                                       Minimum="0" Maximum="1000000000" Increment="1" FormatString="0"
+                                                       Width="170" IsEnabled="{Binding Dynamic1LoopEnabled}"/>
+
+                                        <TextBlock Grid.Column="3" Text="End:" VerticalAlignment="Center" Margin="12,0,4,0"/>
+                                        <NumericUpDown Grid.Column="4" Value="{Binding Dynamic1LoopEndSamples, Mode=TwoWay}"
+                                                       Minimum="0" Maximum="1000000000" Increment="1" FormatString="0"
+                                                       Width="170" IsEnabled="{Binding Dynamic1LoopEnabled}"/>
+                                    </Grid>
+
+                                    <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto">
+                                        <CheckBox Content="File 2 loop" IsChecked="{Binding Dynamic2LoopEnabled}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+
+                                        <TextBlock Grid.Column="1" Text="Start:" VerticalAlignment="Center" Margin="8,0,4,0"/>
+                                        <NumericUpDown Grid.Column="2" Value="{Binding Dynamic2LoopStartSamples, Mode=TwoWay}"
+                                                       Minimum="0" Maximum="1000000000" Increment="1" FormatString="0"
+                                                       Width="170" IsEnabled="{Binding Dynamic2LoopEnabled}"/>
+
+                                        <TextBlock Grid.Column="3" Text="End:" VerticalAlignment="Center" Margin="12,0,4,0"/>
+                                        <NumericUpDown Grid.Column="4" Value="{Binding Dynamic2LoopEndSamples, Mode=TwoWay}"
+                                                       Minimum="0" Maximum="1000000000" Increment="1" FormatString="0"
+                                                       Width="170" IsEnabled="{Binding Dynamic2LoopEnabled}"/>
+                                    </Grid>
+
+                                    <TextBlock Text="Loop points are in samples at each source file's sample rate."
+                                               TextWrapping="Wrap" Opacity="0.7"/>
+
+                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+                                        <TextBlock Text="Quality:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <Slider Grid.Column="1" Minimum="0" Maximum="10" TickFrequency="1" Value="{Binding Quality}"
+                                                VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding Quality, StringFormat='{}{0:0}'}" VerticalAlignment="Center" Margin="8,0,16,0"/>
+                                        <TextBlock Grid.Column="3" Text="Ver:" VerticalAlignment="Center" Margin="8,0,4,0"/>
+                                        <TextBox Grid.Column="4" Text="{Binding Ver}" Width="70"/>
+                                    </Grid>
+
+                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                                        <TextBlock Text="Volume:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <Slider Grid.Column="1" Minimum="-20" Maximum="20" TickFrequency="0.5" Value="{Binding VolumeDb}"
+                                                VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding VolumeDb, StringFormat='{}{0:0.#} dB'}" VerticalAlignment="Center" Margin="8,0,0,0" MinWidth="48"/>
+                                        <Button Grid.Column="3" Content="Reset" Command="{Binding ResetVolumeCommand}" Margin="8,0,0,0"/>
+                                    </Grid>
+                                </StackPanel>
+                            </GroupBox>
+
+                            <!-- CONVERT -->
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <Button Content="Convert" Command="{Binding DynamicConvertCommand}" MinWidth="120" HorizontalAlignment="Left"/>
+                                <ProgressBar Grid.Column="1" Minimum="0" Maximum="100" Value="{Binding Progress}"
+                                             Margin="16,0,16,0" VerticalAlignment="Center" Height="14"/>
+                                <TextBlock Grid.Column="2" Text="{Binding Progress, StringFormat='{}{0:0}%'}" VerticalAlignment="Center" MinWidth="44"/>
+                            </Grid>
+
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </TabItem>
+
+        </TabControl>
 
         <!-- LOG -->
         <GroupBox Grid.Row="2" Header="Log" Height="150">

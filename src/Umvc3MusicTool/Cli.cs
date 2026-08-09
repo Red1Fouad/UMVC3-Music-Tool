@@ -87,7 +87,7 @@ internal static class Cli
             var target = Path.Combine(outDir, baseName + ".sngw");
             var progress = new Progress<string>(msg => Console.WriteLine(msg));
 
-            var final = converter.ConvertAsync(input, target, options, info, progress)
+            var final = converter.ConvertAsync(input, target, options, info, progress, SngwOutputLayout.Standard)
                 .GetAwaiter().GetResult();
 
             Console.WriteLine($"OK -> {final}");

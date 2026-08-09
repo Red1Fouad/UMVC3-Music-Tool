@@ -84,6 +84,32 @@ public partial class MainWindow : Window
         return files.Select(f => f.Path.LocalPath).ToList();
     }
 
+    private async Task<string?> PickSingleAudioFileAsync()
+    {
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Choose audio file",
+            AllowMultiple = false,
+            FileTypeFilter = [AudioFilter, FilePickerFileTypes.All],
+        });
+
+        return files.Count > 0 ? files[0].Path.LocalPath : null;
+    }
+
+    private async void OnBrowseDynamicFile1Click(object? sender, RoutedEventArgs e)
+    {
+        var path = await PickSingleAudioFileAsync();
+        if (path is not null)
+            Vm!.DynamicFile1 = path;
+    }
+
+    private async void OnBrowseDynamicFile2Click(object? sender, RoutedEventArgs e)
+    {
+        var path = await PickSingleAudioFileAsync();
+        if (path is not null)
+            Vm!.DynamicFile2 = path;
+    }
+
     private async void OnBgmGuideClick(object? sender, RoutedEventArgs e)
     {
         await new BgmGuideWindow().ShowDialog(this);

@@ -20,6 +20,13 @@ public sealed class AudioInfo
     public long SampleCountAt48k => (long)Math.Round(DurationSeconds * ConversionOptions.TargetSampleRate);
 }
 
+public enum SngwOutputLayout
+{
+    Standard,
+    DynamicMain,
+    DynamicB,
+}
+
 public sealed class SngwConverter
 {
     private readonly string _ffmpeg;
@@ -106,6 +113,7 @@ public sealed class SngwConverter
         ConversionOptions options,
         AudioInfo info,
         IProgress<string>? progress,
+        SngwOutputLayout layout = SngwOutputLayout.Standard,
         CancellationToken ct = default)
     {
         ResolveLoopPoints(options, info);
@@ -117,7 +125,18 @@ public sealed class SngwConverter
         Directory.CreateDirectory(outDir);
 
         var resample = _useSoxr ? "aresample=48000:resampler=soxr" : "aresample=48000";
-        var filter = $"{resample},aformat=channel_layouts=stereo,pan=5.1|FL=FL|FC=FR";
+        var gain = options.GainDb != 0
+            ? $"volume={options.GainDb.ToString("0.###", CultureInfo.InvariantCulture)}dB,"
+            : string.Empty;
+        var filter = layout switch
+        {
+            SngwOutputLayout.DynamicMain =>
+                $"{gain}{resample},aformat=channel_layouts=stereo,pan=5.1|FL=0.631*FL|FC=0.631*FR|BR=1.585*FL|LFE=1.585*FR,alimiter=limit=1",
+            SngwOutputLayout.DynamicB =>
+                $"{gain}{resample},aformat=channel_layouts=stereo,volume=0.631",
+            _ =>
+                $"{gain}{resample},aformat=channel_layouts=stereo,pan=5.1|FL=FL|FC=FR",
+        };
 
         var psi = new ProcessStartInfo
         {
