@@ -1,0 +1,30 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Umvc3MusicTool.Views.ColorEditor">
+    <StackPanel Spacing="4">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+            <Border x:Name="Swatch" Width="28" Height="28" CornerRadius="4" BorderThickness="1"
+                    BorderBrush="#4DFFFFFF" VerticalAlignment="Center"/>
+            <TextBox x:Name="HexBox" Grid.Column="1" VerticalAlignment="Center"
+                     FontFamily="Consolas, Courier New, monospace" PlaceholderText="#RRGGBB"/>
+        </Grid>
+        <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
+            <TextBlock Text="R" VerticalAlignment="Center"/>
+            <Slider x:Name="RedSlider" Grid.Column="1" Minimum="0" Maximum="255" TickFrequency="1"
+                    Width="150" VerticalAlignment="Center"/>
+            <TextBlock x:Name="RedValue" Grid.Column="2" VerticalAlignment="Center" MinWidth="28"/>
+        </Grid>
+        <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
+            <TextBlock Text="G" VerticalAlignment="Center"/>
+            <Slider x:Name="GreenSlider" Grid.Column="1" Minimum="0" Maximum="255" TickFrequency="1"
+                    Width="150" VerticalAlignment="Center"/>
+            <TextBlock x:Name="GreenValue" Grid.Column="2" VerticalAlignment="Center" MinWidth="28"/>
+        </Grid>
+        <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
+            <TextBlock Text="B" VerticalAlignment="Center"/>
+            <Slider x:Name="BlueSlider" Grid.Column="1" Minimum="0" Maximum="255" TickFrequency="1"
+                    Width="150" VerticalAlignment="Center"/>
+            <TextBlock x:Name="BlueValue" Grid.Column="2" VerticalAlignment="Center" MinWidth="28"/>
+        </Grid>
+    </StackPanel>
+</UserControl>

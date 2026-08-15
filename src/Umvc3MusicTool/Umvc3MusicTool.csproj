@@ -10,6 +10,7 @@
   <ItemGroup>
     <Folder Include="Models\" />
     <AvaloniaResource Include="Assets\**" />
+    <AvaloniaResource Include="..\..\Music_Tool_icon_by_Alucard.png" Link="Assets\Music_Tool_icon_by_Alucard.png" />
   </ItemGroup>
 
   <ItemGroup>

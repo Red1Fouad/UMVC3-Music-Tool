@@ -23,6 +23,12 @@ public sealed class AppSettings
     public bool Dynamic2LoopEnabled { get; set; } = true;
     public long Dynamic2LoopStartSamples { get; set; }
     public long Dynamic2LoopEndSamples { get; set; }
+    public string Theme { get; set; } = "Default";
+    public bool UseCustomBackground { get; set; }
+    public string BackgroundColor { get; set; } = "#FF24242E";
+    public string BackgroundColor2 { get; set; } = "#FF3A3A4A";
+    public bool UseGradientBackground { get; set; } = true;
+    public string GradientDirection { get; set; } = "Vertical";
 }
 
 public sealed class SettingsService

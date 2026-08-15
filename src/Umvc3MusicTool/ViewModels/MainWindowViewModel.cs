@@ -5,6 +5,9 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Media;
+using Avalonia.Styling;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Umvc3MusicTool.Models;
@@ -61,6 +64,13 @@ public partial class MainWindowViewModel : ViewModelBase
         _dynamic1LoopEndSamples = Math.Max(0, _settings.Dynamic1LoopEndSamples);
         _dynamic2LoopStartSamples = Math.Max(0, _settings.Dynamic2LoopStartSamples);
         _dynamic2LoopEndSamples = Math.Max(0, _settings.Dynamic2LoopEndSamples);
+
+        Theme = string.IsNullOrWhiteSpace(_settings.Theme) ? "Default" : _settings.Theme;
+        UseCustomBackground = _settings.UseCustomBackground;
+        UseGradient = _settings.UseGradientBackground;
+        GradientDirection = string.IsNullOrWhiteSpace(_settings.GradientDirection) ? "Vertical" : _settings.GradientDirection;
+        BackgroundColor = Color.TryParse(_settings.BackgroundColor, out var c1) ? c1 : DefaultBackgroundColor;
+        BackgroundColor2 = Color.TryParse(_settings.BackgroundColor2, out var c2) ? c2 : DefaultBackgroundColor2;
     }
 
     public ObservableCollection<SourceFileItem> Files { get; } = [];
@@ -115,6 +125,96 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool dynamic2LoopEnabled = true;
+
+    public string[] ThemeOptions { get; } = ["Default", "Dark", "Light"];
+    public string[] GradientDirectionOptions { get; } = ["Vertical", "Horizontal"];
+
+    private static readonly Color DefaultBackgroundColor = Color.FromArgb(0xFF, 0x24, 0x24, 0x2E);
+    private static readonly Color DefaultBackgroundColor2 = Color.FromArgb(0xFF, 0x3A, 0x3A, 0x4A);
+
+    [ObservableProperty]
+    private string theme = "Default";
+
+    [ObservableProperty]
+    private bool useCustomBackground;
+
+    [ObservableProperty]
+    private Color backgroundColor = DefaultBackgroundColor;
+
+    [ObservableProperty]
+    private Color backgroundColor2 = DefaultBackgroundColor2;
+
+    [ObservableProperty]
+    private bool useGradient = true;
+
+    [ObservableProperty]
+    private string gradientDirection = "Vertical";
+
+    public IBrush? BackgroundBrush => BuildBackgroundBrush();
+
+    partial void OnThemeChanged(string value)
+    {
+        Application.Current?.RequestedThemeVariant = value switch
+        {
+            "Dark" => ThemeVariant.Dark,
+            "Light" => ThemeVariant.Light,
+            _ => ThemeVariant.Default,
+        };
+        SaveAppearanceSettings();
+    }
+
+    partial void OnUseCustomBackgroundChanged(bool value) => RefreshBackground();
+
+    partial void OnBackgroundColorChanged(Color value) => RefreshBackground();
+
+    partial void OnBackgroundColor2Changed(Color value) => RefreshBackground();
+
+    partial void OnUseGradientChanged(bool value) => RefreshBackground();
+
+    partial void OnGradientDirectionChanged(string value) => RefreshBackground();
+
+    private static string FormatHex(Color c) => $"#{c.R:X2}{c.G:X2}{c.B:X2}";
+
+    private void RefreshBackground()
+    {
+        OnPropertyChanged(nameof(BackgroundBrush));
+        SaveAppearanceSettings();
+    }
+
+    private IBrush? BuildBackgroundBrush()
+    {
+        if (!UseCustomBackground)
+            return null;
+
+        var c1 = BackgroundColor;
+
+        if (!UseGradient)
+            return new SolidColorBrush(c1);
+
+        var c2 = BackgroundColor2;
+        var horizontal = GradientDirection == "Horizontal";
+        var brush = new LinearGradientBrush
+        {
+            StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
+            EndPoint = horizontal
+                ? new RelativePoint(1, 0, RelativeUnit.Relative)
+                : new RelativePoint(0, 1, RelativeUnit.Relative),
+        };
+        brush.GradientStops.Add(new GradientStop(c1, 0));
+        brush.GradientStops.Add(new GradientStop(c2, 1));
+        return brush;
+    }
+
+    private void SaveAppearanceSettings()
+    {
+        _settings.Theme = Theme;
+        _settings.UseCustomBackground = UseCustomBackground;
+        _settings.BackgroundColor = FormatHex(BackgroundColor);
+        _settings.BackgroundColor2 = FormatHex(BackgroundColor2);
+        _settings.UseGradientBackground = UseGradient;
+        _settings.GradientDirection = GradientDirection;
+        SettingsService.Save(_settings);
+    }
 
     private long _loopStartSamples;
     private long _loopEndSamples;

@@ -2,18 +2,24 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:sys="using:System"
         xmlns:vm="using:Umvc3MusicTool.ViewModels"
+        xmlns:views="using:Umvc3MusicTool.Views"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="720"
         x:Class="Umvc3MusicTool.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Icon="/Assets/avalonia-logo.ico"
+        Icon="/Assets/Music_Tool_icon_by_Alucard.png"
         Title="UMVC3 Music Tool"
         Width="1280" Height="720"
         MinWidth="1024" MinHeight="600"
         DragDrop.AllowDrop="True">
 
-    <Grid RowDefinitions="Auto,*,Auto" Margin="14" RowSpacing="10">
+    <Grid>
+
+        <!-- Custom background overlay (theme default shows through when disabled) -->
+        <Border Background="{Binding BackgroundBrush}"/>
+
+    <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="14" RowSpacing="10">
 
         <!-- TITLE BAR -->
         <Grid ColumnDefinitions="Auto,*,Auto">
@@ -270,6 +276,58 @@
                 </Grid>
             </TabItem>
 
+            <TabItem Header="Options">
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Spacing="8">
+
+                        <!-- APPEARANCE -->
+                        <GroupBox Header="Appearance">
+                            <StackPanel Spacing="8" Margin="4">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                    <TextBlock Text="Theme:" VerticalAlignment="Center"/>
+                                    <ComboBox Grid.Column="1" ItemsSource="{Binding ThemeOptions}"
+                                              SelectedItem="{Binding Theme}"
+                                              HorizontalAlignment="Left" MinWidth="140"/>
+                                </Grid>
+
+                                <CheckBox Content="Custom background" IsChecked="{Binding UseCustomBackground}"/>
+
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                    <TextBlock Text="Color 1:" VerticalAlignment="Top" IsEnabled="{Binding UseCustomBackground}"/>
+                                    <views:ColorEditor Grid.Column="1" Value="{Binding BackgroundColor, Mode=TwoWay}"
+                                                       IsEnabled="{Binding UseCustomBackground}"/>
+                                </Grid>
+
+                                <CheckBox Content="Gradient (two colors)" IsChecked="{Binding UseGradient}"
+                                          IsEnabled="{Binding UseCustomBackground}"/>
+
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                    <TextBlock Text="Color 2:" VerticalAlignment="Top" IsEnabled="{Binding UseGradient}"/>
+                                    <views:ColorEditor Grid.Column="1" Value="{Binding BackgroundColor2, Mode=TwoWay}"
+                                                       IsEnabled="{Binding UseGradient}"/>
+                                </Grid>
+
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                    <TextBlock Text="Gradient direction:" VerticalAlignment="Center" IsEnabled="{Binding UseGradient}"/>
+                                    <ComboBox Grid.Column="1" ItemsSource="{Binding GradientDirectionOptions}"
+                                              SelectedItem="{Binding GradientDirection}"
+                                              HorizontalAlignment="Left" MinWidth="120" IsEnabled="{Binding UseGradient}"/>
+                                </Grid>
+
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                    <TextBlock Text="Preview:" VerticalAlignment="Center"/>
+                                    <Border Grid.Column="1" Height="36" CornerRadius="4"
+                                            BorderThickness="1" BorderBrush="#4DFFFFFF"
+                                            Background="{Binding BackgroundBrush}"/>
+                                </Grid>
+                            </StackPanel>
+                        </GroupBox>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
         </TabControl>
 
         <!-- LOG -->
@@ -283,5 +341,10 @@
             </ListBox>
         </GroupBox>
 
+        <!-- CREDITS -->
+        <TextBlock Grid.Row="3" Text="Created by RED1 - App icon by Alucard"
+                   HorizontalAlignment="Center" Opacity="0.55" FontSize="11"/>
+
+    </Grid>
     </Grid>
 </Window>
